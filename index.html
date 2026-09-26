@@ -40,7 +40,13 @@ h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:clamp(40p
 .mastmap{flex:0 1 470px;min-width:300px;margin-bottom:-29px}
 .mastmap svg{width:100%;height:auto;display:block}
 @media(max-width:820px){.mastmap{flex:1 1 100%;max-width:460px}}
-.ribbon{display:flex;margin-top:24px;overflow-x:auto}
+.ribbon{display:flex;margin-top:24px;overflow-x:auto;scrollbar-width:none}
+.ribbon::-webkit-scrollbar,.dg-scroll::-webkit-scrollbar,.itin-scroll::-webkit-scrollbar{display:none}
+.dg-scroll,.itin-scroll{scrollbar-width:none}
+.sbar{position:relative;height:5px;border-radius:3px;margin-top:7px;overflow:hidden;background:rgba(23,32,28,.1)}
+.sbar i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--ink-soft);transition:left .06s linear}
+.sbar.gold{background:rgba(201,162,39,.22);margin-top:8px}
+.sbar.gold i{background:var(--brass)}
 .rib{flex:1 0 128px;background:var(--slat);border-right:1px solid rgba(0,0,0,.4);padding:11px 13px 13px;
   cursor:pointer;transition:background .15s}
 .rib:hover{background:#123528}
@@ -296,7 +302,7 @@ table.h2h td.up{background:rgba(16,53,42,.11);color:var(--board);font-weight:700
 table.h2h td.dn{background:rgba(194,52,42,.09);color:var(--red)}
 table.h2h td.none{color:rgba(23,32,28,.2)}
 table.h2h tbody tr:hover td{background:rgba(201,162,39,.14)}
-table.h2h tbody tr:hover td.nm{background:rgba(201,162,39,.2)}
+table.h2h tbody tr:hover td.nm{background:#F4ECD4}
 .dg-note{font-size:12px;color:var(--ink-soft);margin-top:9px;font-style:italic}
 .pick{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
 .pick select{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:600;letter-spacing:.04em;
@@ -337,7 +343,12 @@ table.h2h tbody tr:hover td.nm{background:rgba(201,162,39,.2)}
 .hspark .hsl{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.16em;
   font-size:9.5px;color:var(--brass);font-weight:600;margin-bottom:2px}
 .hspark svg{display:block}
-@media(max-width:640px){.pmspark{display:none}}
+@media(max-width:640px){
+  .modal-hd{flex-wrap:wrap}
+  .modal-hd > div:first-child{flex:1 1 0;min-width:0}
+  .pmspark{order:3;flex:1 1 100%;margin:12px 0 0}
+  .hspark svg{width:100%;height:auto;max-width:380px}
+}
 .statrow > div{background:#fff;border:1px solid var(--rule);padding:10px 6px;border-radius:2px;text-align:center;min-width:0}
 .statrow .n{font-family:'Barlow Condensed',sans-serif;font-size:clamp(17px,2.4vw,23px);font-weight:700;line-height:1}
 .statrow .k{font-family:'Barlow Condensed',sans-serif;font-size:9.5px;letter-spacing:.13em;
@@ -1384,7 +1395,7 @@ function renderYear(){
    </tbody></table></div>${t.budgetNote?`<div class="note">${t.budgetNote}</div>`:""}</section>`;
  }
  $("#yearDetail").innerHTML=h;
- if(t.blocks) renderItin(t);
+ if(t.blocks){ renderItin(t); scrollBar(document.querySelector("#yearDetail .itin-scroll")); }
 }
 function dn(ks){return `<span class="fnm">${ks.map(nm).join(" + ")}</span><span class="lnm">${ks.map(k=>k.split(". ")[1]).join(" + ")}</span>`;}
 function mrow(a,b,res,by,bonus){
@@ -1803,14 +1814,31 @@ function renderData(){
   op.onclick=e=>{e.preventDefault();openPlayer(k);};
  };
  sel.onchange=draw; draw();
+ scrollBar(document.querySelector("#dataGolf .dg-scroll"));
 }
 const TABS=[["board","The Board"],["data","Data Golf"],["years","History"],["rules","Guidelines"]];
+const SBARS=new Set();
+function scrollBar(sc,cls){
+ if(!sc) return;
+ let bar=sc.nextElementSibling;
+ if(!bar||!bar.classList||!bar.classList.contains("sbar")){
+  bar=document.createElement("div"); bar.className="sbar"+(cls?" "+cls:""); bar.innerHTML="<i></i>"; sc.after(bar);}
+ const th=bar.firstChild;
+ const upd=()=>{const o=sc.scrollWidth>sc.clientWidth+2; bar.style.display=o?"block":"none"; if(!o) return;
+  th.style.width=(sc.clientWidth/sc.scrollWidth*100).toFixed(2)+"%";
+  th.style.left=(sc.scrollLeft/sc.scrollWidth*100).toFixed(2)+"%";};
+ sc.addEventListener("scroll",upd,{passive:true});
+ SBARS.add({sc,upd}); upd();
+}
+function updBars(){ SBARS.forEach(b=>{ if(!document.contains(b.sc)) SBARS.delete(b); else b.upd(); }); }
+window.addEventListener("resize",updBars);
 function selectTab(id){
  document.body.classList.forEach(c=>{if(c.indexOf("tab-")===0) document.body.classList.remove(c);});
  document.body.classList.add("tab-"+id);
  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.id===id));
  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
  $("#p-"+id).classList.add("on");window.scrollTo({top:0,behavior:"smooth"});
+ setTimeout(updBars,60);
 }
 function renderTabs(){const n=$("#tabs");
  TABS.forEach(([id,label],i)=>{const b=el("button","tab",label);
@@ -1820,7 +1848,7 @@ function renderTabs(){const n=$("#tabs");
 $("#pmClose").onclick=closePlayer;
 $("#pModal").onclick=e=>{ if(e.target.id==="pModal") closePlayer(); };
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePlayer(); });
-renderTabs();renderRibbon();renderBoard();renderYearBar();renderYear();
+renderTabs();renderRibbon();scrollBar($("#ribbon"),"gold");renderBoard();renderYearBar();renderYear();
 renderRules();renderData();
 </script>
 </body>
